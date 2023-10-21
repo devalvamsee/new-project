@@ -2,7 +2,8 @@ import boto3
 
 def create_instance(name_prefix, instance_type, count):
     ec2 = boto3.client('ec2', region_name='ap-south-1')
-
+    
+    tags_list = [{'Key': 'Name', 'Value': f'{name_prefix}'}]
     instances = ec2.run_instances(
         ImageId='ami-0287a05f0ef0e9d9a',
         InstanceType=instance_type,
@@ -11,7 +12,7 @@ def create_instance(name_prefix, instance_type, count):
         TagSpecifications=[
             {
                 'ResourceType': 'instance',
-                'Tags': [{'Key': 'Name', 'Value': name_prefix}]
+                'Tags': tags_list
             },
         ]
     )
@@ -28,13 +29,15 @@ def update_instance_names(instances):
 def store_instance_data(instances):
     dynamodb = boto3.resource('dynamodb', region_name='ap-south-1')
     table = dynamodb.Table('InstanceInfo')
+    
     for instance in instances:
+        public_ip = instance.get('PublicIpAddress', 'N/A')  # Handle missing PublicIpAddress
         table.put_item(
             Item={
                 'InstanceId': instance['InstanceId'],
                 'InstanceName': [tag['Value'] for tag in instance['Tags'] if tag['Key'] == 'Name'][0],
                 'PrivateIp': instance['PrivateIpAddress'],
-                'PublicIp': instance['PublicIpAddress']
+                'PublicIp': public_ip  # Use the default value if PublicIpAddress is missing
             }
         )
 
